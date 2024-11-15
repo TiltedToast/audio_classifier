@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 import multiprocessing as mp
 from dataclasses import dataclass
+import torch
 
 
 @dataclass
@@ -21,11 +22,15 @@ def convert_to_spectrogram(input_path: Path, output_path: Path):
     S = librosa.stft(y)
     S_dB = librosa.amplitude_to_db(np.abs(S), ref=np.max)
 
-    np.save(output_path.as_posix(), S_dB)
+    S_db = torch.from_numpy(S_dB)
+
+    torch.save(S_db, output_path.as_posix())
 
 
 def worker(args: Args):
-    output_path = args.output_dir / args.input_file.with_suffix(".npy").relative_to("/")
+    output_path = args.output_dir / args.input_file.with_suffix(
+        args.input_file.suffix + ".pt",
+    ).relative_to("/")
 
     if output_path.exists():
         return
@@ -38,7 +43,7 @@ def worker(args: Args):
 
 def main(
     input_dir: Path,
-    output_dir: Path,
+    output_dir: Path = Path("./data/train"),
     num_workers: int = mp.cpu_count(),
 ):
     if not input_dir.is_dir():
