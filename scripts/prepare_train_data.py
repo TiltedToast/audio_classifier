@@ -14,11 +14,10 @@ class Args:
     num_workers: int
 
 
-spectrogram_transform = T.MelSpectrogram(
+spectrogram_transform = T.Spectrogram(
     n_fft = 1024,
     win_length = None,
     hop_length = 512,
-    n_mels = 128
 )
 
 
