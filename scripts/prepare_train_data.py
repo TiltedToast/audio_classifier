@@ -1,9 +1,9 @@
 import typer
-import librosa
-import numpy as np
 from pathlib import Path
 import multiprocessing as mp
 from dataclasses import dataclass
+import torchaudio
+import torchaudio.transforms as T
 import torch
 
 
@@ -14,17 +14,26 @@ class Args:
     num_workers: int
 
 
+spectrogram_transform = T.MelSpectrogram(
+    n_fft = 1024,
+    win_length = None,
+    hop_length = 512,
+    n_mels = 128
+)
+
+
 def convert_to_spectrogram(input_path: Path, output_path: Path):
     input_path = input_path.absolute()
     output_path = output_path.absolute()
 
-    y, _ = librosa.load(input_path.as_posix(), sr=None)
-    S = librosa.stft(y)
-    S_dB = librosa.amplitude_to_db(np.abs(S), ref=np.max)
+    if output_path.exists():
+        return
 
-    S_db = torch.from_numpy(S_dB)
+    waveform, _ = torchaudio.load(input_path.as_posix())
 
-    torch.save(S_db, output_path.as_posix())
+    spectrogram = spectrogram_transform(waveform)
+
+    torch.save(spectrogram, output_path.as_posix())
 
 
 def worker(args: Args):
