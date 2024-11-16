@@ -4,3 +4,4 @@ matplotlib
 ruff
 torchaudio
 PySoundFile
+tqdm

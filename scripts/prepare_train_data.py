@@ -1,24 +1,19 @@
-import typer
-from pathlib import Path
 import multiprocessing as mp
 from dataclasses import dataclass
+from pathlib import Path
+
+import torch
 import torchaudio
 import torchaudio.transforms as T
-import torch
-
+import typer
+from tqdm.auto import tqdm
+import torch.nn.functional as F
 
 @dataclass
 class Args:
     input_file: Path
     output_dir: Path
     num_workers: int
-
-
-spectrogram_transform = T.Spectrogram(
-    n_fft = 1024,
-    win_length = None,
-    hop_length = 512,
-)
 
 
 def convert_to_spectrogram(input_path: Path, output_path: Path):
@@ -28,9 +23,27 @@ def convert_to_spectrogram(input_path: Path, output_path: Path):
     if output_path.exists():
         return
 
-    waveform, _ = torchaudio.load(input_path.as_posix())
+    waveform, sample_rate = torchaudio.load(input_path.as_posix())
 
-    spectrogram = spectrogram_transform(waveform)
+    spectrogram = T.MelSpectrogram(
+        sample_rate=sample_rate,
+        n_fft=2048,
+        hop_length=512,
+        n_mels=80,
+        f_min=20,
+        f_max=8000,
+    )(waveform)
+
+    spectrogram = torch.log(spectrogram + 1e-9)
+
+    # TODO: Standardise spectrogram size for classification tasks
+    # target_length = 1024
+    # if spectrogram.size(-1) != target_length:
+    #     spectrogram = F.interpolate(
+    #         spectrogram.unsqueeze(0),
+    #         size=(80, target_length),
+    #         mode="bilinear",
+    #     ).squeeze(0)
 
     torch.save(spectrogram, output_path.as_posix())
 
@@ -45,7 +58,6 @@ def worker(args: Args):
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print(f"Processing {args.input_file} into {output_path}")
     convert_to_spectrogram(args.input_file, output_path)
 
 
@@ -62,8 +74,14 @@ def main(
 
     files = [f for f in input_dir.glob("**/*") if f.suffix in [".wav", ".mp3", ".flac"]]
 
-    with mp.Pool(num_workers) as pool:
-        pool.map(worker, [Args(file, output_dir, num_workers) for file in files])
+    args_list = [Args(file, output_dir, num_workers) for file in files]
+
+    with mp.Pool(num_workers) as pool, tqdm(
+        total=len(args_list),
+        desc="Processing files",
+    ) as pbar:
+        for _ in pool.imap_unordered(worker, args_list):
+            pbar.update()
 
 
 if __name__ == "__main__":
