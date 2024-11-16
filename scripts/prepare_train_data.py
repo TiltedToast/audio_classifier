@@ -39,12 +39,9 @@ def save_spectrogram_plot(
     sample_rate: int,
     waveform: torch.Tensor,
 ):
-    # Take the mean of the channels if stereo
-    spec = spectrogram.mean(dim=0).numpy() if spectrogram.dim() > 2 else spectrogram.numpy()
-
     plt.figure(figsize=(10, 4))
     plt.imshow(
-        spec.squeeze(),
+        spectrogram.squeeze(),
         aspect="auto",
         origin="lower",
         cmap="magma",
@@ -82,6 +79,9 @@ def convert_to_spectrogram(
     )(waveform)
 
     mel_spect_db = T.AmplitudeToDB()(mel_spect)
+
+    # Take the mean of the channels if 2+ channels
+    mel_spect_db = mel_spect_db.mean(dim=0) if mel_spect_db.dim() > 2 else mel_spect_db
 
     if mode == SaveMode.image:
         save_spectrogram_plot(mel_spect_db, output_path, sample_rate, waveform)
