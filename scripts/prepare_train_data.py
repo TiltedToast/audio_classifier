@@ -1,18 +1,21 @@
 import multiprocessing as mp
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torchaudio
 import torchaudio.transforms as T
 import typer
 from tqdm.auto import tqdm
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-from enum import Enum
-from typer import Option, Argument
-import numpy as np
+from typer import Argument, Option
 
+n_fft = 2048
+hop_length = 512
+n_mels = 128
+f_min = 0
 f_max = 8000
 
 
@@ -36,34 +39,21 @@ def save_spectrogram_plot(
     sample_rate: int,
     waveform: torch.Tensor,
 ):
-    # take first channel if stereo
-    spec = spectrogram[0].numpy() if spectrogram.dim() > 2 else spectrogram.numpy()
-
-    def mel_to_freq(mel_values):
-        return 700 * (10 ** (mel_values / 2595) - 1)
-
-    # Compute Mel frequencies
-    mel_bins = spec.shape[1]
-    mel_values = np.linspace(0, 2595 * np.log10(1 + f_max / 700), mel_bins)
-    mel_frequencies = mel_to_freq(mel_values)
+    # Take the mean of the channels if stereo
+    spec = spectrogram.mean(dim=0).numpy() if spectrogram.dim() > 2 else spectrogram.numpy()
 
     plt.figure(figsize=(10, 4))
     plt.imshow(
         spec.squeeze(),
         aspect="auto",
         origin="lower",
-        extent=[
-            0,
-            waveform.size(1) / sample_rate,
-            mel_frequencies[0],
-            mel_frequencies[-1],
-        ],
         cmap="magma",
+        extent=[0, waveform.size(1) / sample_rate, 0, n_mels],
     )
     plt.colorbar(format="%+2.0f dB")
     plt.title("Mel Spectrogram")
     plt.xlabel("Time (s)")
-    plt.ylabel("Frequency (Hz)")
+    plt.ylabel("Mel Frequency")
     plt.savefig(output_path.as_posix(), dpi=300, bbox_inches="tight")
     plt.close()
 
@@ -84,10 +74,10 @@ def convert_to_spectrogram(
 
     mel_spect = T.MelSpectrogram(
         sample_rate=sample_rate,
-        n_fft=2048,
-        hop_length=512,
-        n_mels=80,
-        f_min=20,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        n_mels=n_mels,
+        f_min=f_min,
         f_max=f_max,
     )(waveform)
 
