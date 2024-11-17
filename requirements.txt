@@ -3,5 +3,4 @@ typer
 matplotlib
 ruff
 torchaudio
-PySoundFile
 tqdm
