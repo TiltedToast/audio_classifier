@@ -125,6 +125,8 @@ def preprocess_waveform(
     original_sample_rate: int,
     args: Args,
 ):
+    waveform -= waveform.mean()
+
     if original_sample_rate != args.sample_rate:
         resampler = T.Resample(orig_freq=original_sample_rate, new_freq=args.sample_rate)
         waveform = resampler(waveform)
